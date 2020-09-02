@@ -33,6 +33,12 @@ func main() {
 	authService.SetupDefaultAuthAPI(api)
 	api.GET("/greet/:name", authService.MakeIsAuthMiddleware(), greeting.GreetHandler)
 
+	router.Static("/static", "./static")
+
+	router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusPermanentRedirect, "/static/index.html")
+	})
+
 	if err := http.Serve(conf.Listener, router); err != nil {
 		log.Fatalln(err)
 	}

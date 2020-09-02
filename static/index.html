@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Index</title>
+</head>
+<body>
+<p id="login_info">
+</p>
+
+<p>
+    <label for="name">Name:</label>
+    <input type="text" id="name">
+    <button id="summit">Summit</button>
+</p>
+<p id="result"></p>
+<script>
+    'use strict';
+
+    let name_box = document.getElementById("name");
+    let summit_button = document.getElementById("summit");
+    let greet_result = document.getElementById("result");
+    let login_info = document.getElementById("login_info");
+    let storage = window.sessionStorage;
+
+    function httpAsync(method, theUrl, callback) {
+        let xmlHttp = getHttpRequester(method, theUrl, true)
+        xmlHttp.onreadystatechange = function () {
+            if (xmlHttp.readyState === 4) {
+                let body = xmlHttp.responseText;
+                let status = xmlHttp.status;
+                callback(body, status);
+            }
+        };
+        xmlHttp.send(null);
+    }
+
+    function httpGetAsync(theUrl, callback) {
+        let xmlHttp = getHttpRequester("GET", theUrl, true)
+        xmlHttp.onload = () => {
+            if (xmlHttp.readyState === 4) {
+                let body = xmlHttp.responseText;
+                let status = xmlHttp.status;
+                callback(body, status);
+            }
+        };
+        xmlHttp.send(null);
+    }
+
+    function greet(somebody, callback) {
+        httpGetAsync("/api/greet/" + somebody.toString(), (body) => {
+            let obj = JSON.parse(body);
+            let message = obj ? obj.data ? obj.data.message : "" : "";
+            callback(message);
+        })
+    }
+
+    summit_button.onclick = () => {
+        let name = name_box.value;
+        greet(name, (message) => {
+            greet_result.innerHTML = message;
+        });
+    }
+
+    let already_login;
+    let auth_token = storage.getItem("auth_token");
+    let uid = storage.getItem("uid");
+
+    if (auth_token) {
+        already_login = true;
+
+        let logout_button = document.createElement("button");
+        logout_button.innerHTML = "logout";
+
+        logout_button.onclick = () => {
+            let xmlHttp = getHttpRequester("POST", "/api/logout", true);
+            xmlHttp.onreadystatechange = () => {
+                storage.removeItem("auth_token");
+                storage.removeItem("uid");
+                location.reload();
+            };
+            xmlHttp.send(null);
+        };
+
+        login_info.innerText = uid + " " + auth_token + "  ";
+        login_info.appendChild(document.createElement("br"));
+        login_info.appendChild(logout_button);
+    } else {
+        already_login = false;
+
+        let email_label = document.createElement("label");
+        email_label.setAttribute("for", "email_box")
+        email_label.innerText = "Email:";
+        let password_label = document.createElement("label");
+        password_label.setAttribute("for", "password_box")
+        password_label.innerText = "Password: ";
+        let email_box = document.createElement("input");
+        email_box.id = "email_box";
+        email_box.type = "text";
+        let password_box = document.createElement("input");
+        email_box.id = "password_box";
+        password_box.type = "password";
+        let login_button = document.createElement("button");
+        login_button.innerHTML = "login";
+        login_button.onclick = function () {
+            let xmlHttp = getHttpRequester("POST", "/api/login", true);
+            xmlHttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xmlHttp.onreadystatechange = function () {
+                if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
+                    console.log(xmlHttp.responseText);
+                    let login_res = JSON.parse(xmlHttp.responseText);
+                    login_res?.data?.uid && storage.setItem("uid", login_res.data.uid);
+                    login_res?.data?.token && storage.setItem("auth_token", login_res.data.token);
+                    location.reload();
+                }
+            }
+            xmlHttp.send(JSON.stringify({
+                "email": email_box.value,
+                "password": password_box.value
+            }));
+        }
+        let login_stat = document.createElement("p");
+        let signup_button = document.createElement("button");
+        signup_button.innerHTML = "signup";
+        signup_button.onclick = function () {
+            let xmlHttp = getHttpRequester("POST", "/api/signup", true);
+            xmlHttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xmlHttp.onreadystatechange = function () {
+                if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
+                    console.log(xmlHttp.responseText);
+                    location.reload();
+                }
+            }
+            xmlHttp.send(JSON.stringify({
+                "email": email_box.value,
+                "password": password_box.value
+            }));
+        }
+
+        login_info.appendChild(email_label);
+        login_info.appendChild(email_box);
+        login_info.appendChild(document.createElement("br"));
+        login_info.appendChild(password_label);
+        login_info.appendChild(password_box);
+        login_info.appendChild(document.createElement("br"));
+        login_info.appendChild(login_button);
+        login_info.appendChild(signup_button);
+        login_info.appendChild(login_stat);
+    }
+
+    function getHttpRequester(method, theUrl, isAsync) {
+        let xmlHttp = new XMLHttpRequest();
+        xmlHttp.open(method, theUrl, isAsync);
+        if (already_login) {
+            xmlHttp.setRequestHeader("x-auth-token", auth_token);
+            xmlHttp.setRequestHeader("x-user-id", uid);
+        }
+        return xmlHttp;
+    }
+</script>
+</body>
+</html>
